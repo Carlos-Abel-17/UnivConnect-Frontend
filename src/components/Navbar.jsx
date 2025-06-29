@@ -1,6 +1,6 @@
 import paper_logo from '../../public/paper_logo.svg';
 import Home from '../assets/Home.svg';
-import Connect from '../assets/connect.svg';
+import Connect from '../assets/Connect.svg';
 import Anunciar from '../assets/Anunciar.svg';
 import paperDTop from '../assets/paper_diagonal_top.svg';
 import paperDBottom from '../assets/paper_diagonal_bottom.svg';
