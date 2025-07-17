@@ -7,49 +7,71 @@ import { useEffect, useState } from "react";
 import { GetDepart } from "../../redux/features/departament/Thunk/DeparThunk";
 import { FindProvi } from "../../redux/features/province/Thunk/ProviThunk";
 import { FindDist } from "../../redux/features/district/Thunk/DistThunk";
-import { ValidateEmailinstiThunk } from "../../redux/features/emailinsti/Thunk/emailinstiThunk";
+import { ValidateEmailinstiThunk, VerifyCodeEmailThunk } from "../../redux/features/emailinsti/Thunk/emailinstiThunk";
+import { FaCheck } from "react-icons/fa";
+import { RxCross2 } from "react-icons/rx";
 
 function Register() {
-  const [emailValue, setEmailValue] = useState("");
-
-  useEffect(()=>{
-    const handler = setTimeout(()=>{
-      console.log(emailValue)
-      if(emailValue.includes('@')){
-        const value = emailValue.split('@')[1];
-        dispath(ValidateEmailInsti(value))
-      }
-    }, 600)
-
-    return ()=>clearTimeout(handler);
-  }, [emailValue]);
-
-  const dispath = useDispatch();
-  const {
-    register,
-    handleSubmit,
-    formState: { errors }
-  } = useForm();
+  //-------------------
+  //? VARIABLES
+  //-------------------
   const depart = useSelector((state)=>state.Depart);
   const provi = useSelector((state)=>state.Provi);
   const dist = useSelector((state)=>state.Dist);
-  const emailinsti = useSelector((state)=>state.EmailInsti);
-
-  const onSubmit = (data) => {
-    console.log(data);
-  };
-
+  const emailinsti = useSelector((state)=>state.EmailInsti.validate);
+  const verifycode = useSelector((state)=>state.EmailInsti.verify);
+  const [emailValue, setEmailValue] = useState("");
+  const [step,setStep] = useState(1);
+  const [vcode, setVcode] = useState({email:'',code:''});
+  const dispath = useDispatch();
+  const {register, handleSubmit, formState: { errors }, watch} = useForm();
+  const watchFields = watch(["Name", "LastName", "Birthdate", "gender", "departamento", "provincia", "distrito"]).every(value=>value && value != 0);
   const genero = [
     { id: 0, type: '', name: 'Selecione una opcion' },
     { id: 1, type: 'M', name: 'Mujer' },
     { id: 2, type: 'H', name: 'Hombre' },
     { id: 3, type: 'PND', name: 'Prefiero no decirlo' }
   ];
- 
+  const dataR = emailinsti.data ? emailinsti?.data : null;
+  const dataVC = verifycode.data ? verifycode?.data : null;
+
+  //console.log(verifycode);
+
+  //------------------
+  //? Use Effects
+  //-----------------
+  // useEffect(()=>{
+  //   const handler = setTimeout(()=>{
+  //     //console.log(emailValue)
+  //     if(emailValue.includes('@') && (emailValue.includes('.pe') || emailValue.includes('.com'))){
+  //       dispath(ValidateEmailInsti(emailValue))
+  //     }
+  //   },400)
+  //   return ()=>clearTimeout(handler);
+  // }, [emailValue]);
+
+  useEffect(()=>{
+    const handler = setTimeout(()=>{
+      if(vcode.code.length === 6){
+        dispath(VerifyCodeEmail(vcode))
+      }
+    },400);
+
+    return ()=>clearTimeout(handler);
+  },[vcode.code])
+
   useEffect(()=>{
     dispath(GetDepart())
   },[]);
 
+  //-------------
+  //? ARROW FUNCTION || FUNCTION
+  //-------------
+
+  const onSubmit = (data) => {
+    console.log(data);
+  };
+  
   const ChangeOptionDepar = (value) => {
     dispath(FindProvi(value))
   };
@@ -59,9 +81,18 @@ function Register() {
   };
 
   const ValidateEmailInsti = (value) =>{
-    dispath(ValidateEmailinstiThunk(value))
+    if(value.includes('@') && (value.includes('.pe') || value.includes('.com'))){
+      setEmailValue(value)
+      dispath(ValidateEmailinstiThunk(value));
+    }
   }
-  console.log(emailinsti.data);
+
+  const VerifyCodeEmail = (value) =>{
+    value.email = emailValue;
+    dispath(VerifyCodeEmailThunk(value))
+  }
+
+  //console.log(verifycode)
 
   return (
     <div className="flex w-full h-screen ">
@@ -88,6 +119,8 @@ function Register() {
           onSubmit={handleSubmit(onSubmit)}
           className="bg-white p-8 md:p-10 rounded-lg shadow-md w-full max-w-md"
         >
+          {step === 1 && (
+            <>
           <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
             Registro
           </h2>
@@ -114,18 +147,6 @@ function Register() {
               id="LastName"
               placeholder="Apellidos"
               {...register("LastName", { required: "Este campo es obligatorio" })}
-              className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
-            />
-          </div>
-          <div className=" mb-4">
-            <label>
-              Nombre de usuario <span className="text-red-600">(*)</span>
-            </label>
-            <input
-              type="text"
-              id="NameUser"
-              placeholder="@example123"
-              {...register("NameUser", { required: "Este campo es obligatorio" })}
               className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
             />
           </div>
@@ -226,37 +247,81 @@ function Register() {
               )}
             </div>
           </div>
+          <div className="mt-6 flex justify-end mb-4">
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  //disabled={!watchFields}
+                  className={!watchFields ? "bg-[#1785de8b] text-white px-4 py-2 rounded transition" : "bg-[#1785de] text-white px-4 py-2 rounded hover:bg-[#0e65b5] transition"}
+                >
+                  Siguiente
+                </button>
+              </div>
+            </>
+          )}
+
+          {step === 2 && (
+            <>
 
           <div className="mb-4 relative">
-            <label htmlFor="email">
-              Correo Institucional
-            </label>
-            <div className="absolute top-0 right-0 mt-1 mr-1 group cursor-pointer">
-              <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
-                i
-              </div>
-              <div className="absolute right-6 top-1 w-64 p-2 text-xs text-white bg-gray-700 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                El correo institucional solo se usará para confirmar que eres estudiante de la UTP y no se guardará en nuestra base de datos.
+            <label htmlFor="email">Correo Institucional</label>
+
+            {/* Tooltip activado SOLO cuando el mouse está sobre el botón "i" */}
+            <div className="absolute top-0 right-0 mt-1 mr-1">
+              <div className="relative">
+                <div className="group w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold cursor-pointer">
+                  i
+                  {/* Este tooltip está DENTRO del botón "i", y depende del hover del ícono */}
+                  <div className="absolute right-6 top-1 w-64 max-w-[90vw] p-2 text-xs text-white bg-gray-700 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                    El correo institucional solo se usará para confirmar que eres estudiante de la UTP y no se guardará en nuestra base de datos.
+                  </div>
+
+                </div>
               </div>
             </div>
+
             <input
               id="email"
               type="email"
               placeholder="correo institucional"
               {...register("email", { required: "Este campo es obligatorio" })}
               className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
-              onChange={(e)=>setEmailValue(e.target.value)}
+              onChange={(e) =>ValidateEmailInsti(e.target.value)}
             />
-            {(errors.email && emailinsti.status === 'failed') && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.email.message}
-              </p>
+            {(errors.email) && (
+              <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
             )}
+            {dataR?.data?.success === true && (<p className="text-green-500 text-sm mt-1 flex items-center "> <FaCheck /> {dataR?.data?.message} </p>)}
+            {dataR?.data?.success === false && (<p className="text-red-500 text-sm mt-1 flex items-center"> <RxCross2 /> {dataR?.data?.message} </p>)}
           </div>
+            
+            {dataR?.data?.success === true && (<div className=" mb-4">
+            <label >
+              Verifica el codigo
+            </label>
+            <input type="text" 
+            //id="VCode" 
+             placeholder="x-x-x-x-x-x-x-x" 
+            //{...register("Vcode",{required})} 
+            className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
+            onChange={(e)=>setVcode({...vcode, code:e.target.value})} />
+            {dataVC?.data?.success === true && ( <p className="text-green-500 text-sm mt-1 flex items-center"> <FaCheck /> {dataVC?.data?.message} </p> )}
+            {dataVC?.data?.success === false && ( <p className="text-red-500 text-sm mt-1 flex items-center"> <RxCross2 /> {dataVC?.data?.message} </p> )}
+          </div>)}
 
-          {
-
-          }
+          <div className=" mb-4">
+            <label>
+              Nombre de usuario <span className="text-red-600">(*)</span>
+            </label>
+            <input
+              type="text"
+              id="NameUser"
+              placeholder="@example123"
+              disabled={verifycode.status !== 'succeeded'}
+              {...register("NameUser", { required: "Este campo es obligatorio" })}
+              className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
+            />
+          </div>
 
           <div className="mb-6">
             <label
@@ -268,6 +333,7 @@ function Register() {
               id="password"
               type="password"
               placeholder="********"
+              disabled={verifycode.status !== 'succeeded'}
               {...register("password", { required: "Este campo es obligatorio" })}
               className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
             />
@@ -278,13 +344,26 @@ function Register() {
             )}
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-[#1785de] hover:bg-[#0e65b5] transition duration-200 text-white font-semibold py-2 px-4 rounded-md mb-4"
-          >
-            Registar
-          </button>
+          <div className="flex justify-between mt-6 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 transition"
+                >
+                  Atrás
+                </button>
 
+                <button
+                  type="submit"
+                  className="bg-[#1785de] text-white px-4 py-2 rounded hover:bg-[#0e65b5] transition"
+                >
+                  Registrar
+                </button>
+              </div>
+            </>
+          )}
+
+          {step === 1 && (
           <div className="text-center">
             <p className="text-gray-600 text-sm">
               ¿Ya tienes cuenta?
@@ -295,6 +374,7 @@ function Register() {
               </Link>
             </p>
           </div>
+          )}
         </form>
       </div>
     </div>
