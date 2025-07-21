@@ -3,29 +3,43 @@ import { Link } from "react-router-dom";
 import socialImg from "../../assets/img/social_img.svg";
 import paper_logo from "../../../public/paper_logo.svg";
 import { useDispatch, useSelector } from "react-redux";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { GetDepart } from "../../redux/features/departament/Thunk/DeparThunk";
 import { FindProvi } from "../../redux/features/province/Thunk/ProviThunk";
 import { FindDist } from "../../redux/features/district/Thunk/DistThunk";
 import { ValidateEmailinstiThunk, VerifyCodeEmailThunk } from "../../redux/features/emailinsti/Thunk/emailinstiThunk";
 import { FaCheck } from "react-icons/fa";
 import { RxCross2 } from "react-icons/rx";
+import { debounce } from "lodash";
+import { CreateUser, VerifyNameUser } from "../../redux/features/User/Thunk/UserThunk";
+import LoadingLine from "../../utils/loading_line";
 
 function Register() {
   //-------------------
-  //? VARIABLES
+  //? UseSelectors
   //-------------------
   const depart = useSelector((state)=>state.Depart);
   const provi = useSelector((state)=>state.Provi);
   const dist = useSelector((state)=>state.Dist);
   const emailinsti = useSelector((state)=>state.EmailInsti.validate);
   const verifycode = useSelector((state)=>state.EmailInsti.verify);
+  const verifyNameUserState =useSelector((state)=>state.UserR.VerifyNameUser);
+  const CreateUserState = useSelector((state)=> state.UserR.CreateUserState);
+  //------------------
+  //?UseState
+  //-----------------
+  const [nameUser, setNameUser] = useState("");
   const [emailValue, setEmailValue] = useState("");
   const [step,setStep] = useState(1);
   const [vcode, setVcode] = useState({email:'',code:''});
+  const [edad,setEdad] = useState(null);
+    //-------------------
+  //? VARIABLES
+  //-------------------
   const dispath = useDispatch();
-  const {register, handleSubmit, formState: { errors }, watch} = useForm();
-  const watchFields = watch(["Name", "LastName", "Birthdate", "gender", "departamento", "provincia", "distrito"]).every(value=>value && value != 0);
+  const {register, handleSubmit, formState: { errors }, watch,setValue} = useForm();
+  const watchFields = watch(["Name", "LastName", "Birthdate", "Gender", "Departament", "Province", "District"]).every(value=>value && value != 0);
+  const WatchBirthdate = watch('Birthdate');
   const genero = [
     { id: 0, type: '', name: 'Selecione una opcion' },
     { id: 1, type: 'M', name: 'Mujer' },
@@ -34,22 +48,10 @@ function Register() {
   ];
   const dataR = emailinsti.data ? emailinsti?.data : null;
   const dataVC = verifycode.data ? verifycode?.data : null;
-
-  //console.log(verifycode);
-
-  //------------------
-  //? Use Effects
-  //-----------------
-  // useEffect(()=>{
-  //   const handler = setTimeout(()=>{
-  //     //console.log(emailValue)
-  //     if(emailValue.includes('@') && (emailValue.includes('.pe') || emailValue.includes('.com'))){
-  //       dispath(ValidateEmailInsti(emailValue))
-  //     }
-  //   },400)
-  //   return ()=>clearTimeout(handler);
-  // }, [emailValue]);
-
+  const dataVNU = verifyNameUserState.data ? verifyNameUserState?.data : null;
+  //-------------------
+  //? UseEffects
+  //-------------------
   useEffect(()=>{
     const handler = setTimeout(()=>{
       if(vcode.code.length === 6){
@@ -64,12 +66,40 @@ function Register() {
     dispath(GetDepart())
   },[]);
 
+  useEffect(()=>{
+    if(WatchBirthdate){
+      //console.log(WatchBirthdate)
+      const today = new Date();
+      const birth = new Date(WatchBirthdate);
+      
+      //console.log(birth.getFullYear())
+      let age = today.getFullYear() - birth.getFullYear();
+      const  m = today.getMonth() - birth.getMonth();
+
+      if(m < 0 || (m === 0 && today.getDate() < birth.getDate())){
+        age--;
+      }
+      setEdad(age);
+    }
+  },[WatchBirthdate]);
   //-------------
   //? ARROW FUNCTION || FUNCTION
   //-------------
 
   const onSubmit = (data) => {
-    console.log(data);
+    //console.log(dataR.data.data.dataInsti);
+    const transforData = {
+      ...data, Gender:Number(data.Gender),
+      Province:Number(data.Province),
+      District:Number(data.District),
+      Departament:Number(data.Departament),
+      PasswordView:data.Password,
+      Number:data.Number.length >= 9 ? data.Number : 900000099,
+      idInstitucion: dataR?.data ? dataR.data.data.dataInsti.idInstitucion : null
+    };
+    //console.log(transforData)
+    dispath(CreateUser(transforData));
+    //console.log(CreateUserState);
   };
   
   const ChangeOptionDepar = (value) => {
@@ -84,15 +114,30 @@ function Register() {
     if(value.includes('@') && (value.includes('.pe') || value.includes('.com'))){
       setEmailValue(value)
       dispath(ValidateEmailinstiThunk(value));
+      //console.log(emailinsti)
     }
   }
+
+ const handleNameUserChange = useCallback(
+  debounce((value)=>{
+    if(value.length >= 8){
+      dispath(VerifyNameUser(value))
+    } 
+  },500),
+  []
+ )
+
+ const onChangeNameUser = (e) =>{
+  const value = e.target.value;
+  setNameUser(value)
+  handleNameUserChange(value)
+  console.log(verifyNameUserState);
+ }
 
   const VerifyCodeEmail = (value) =>{
     value.email = emailValue;
     dispath(VerifyCodeEmailThunk(value))
   }
-
-  //console.log(verifycode)
 
   return (
     <div className="flex w-full h-screen ">
@@ -158,39 +203,41 @@ function Register() {
             <input
               type="date"
               id="Birthdate"
-              {...register("Birthdate", { required: "Este campo es obligatorio" })}
+              {...register("Birthdate", { required: "Este campo es obligatorio",validate: () => edad >= 17})}
               className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
             />
+            {edad !== null && edad < 17 && <p style={{color: "red"}}>La edad mínima es de 17 años</p>}
+
           </div>
 
           <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Género */}
             <div>
-              <label htmlFor="gender">Género</label>
+              <label htmlFor="Gender">Género</label>
               <select
-                id="gender"
-                {...register("gender", { required: "Este campo es obligatorio" })}
+                id="Gender"
+                {...register("Gender", { required: "Este campo es obligatorio" })}
                 className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
               >
                 {genero.map((par) => (
-                  <option key={par.id} value={par.type}>
+                  <option key={par.id} value={par.id}>
                     {par.name}
                   </option>
                 ))}
               </select>
-              {errors.gender && (
+              {errors.Gender && (
                 <p className="text-red-500 text-sm mt-1">
-                  {errors.gender.message}
+                  {errors.Gender.message}
                 </p>
               )}
             </div>
 
-            {/* Departamento */}
+            {/* Departament */}
             <div>
-              <label htmlFor="departamento">Departamento</label>
+              <label htmlFor="Departament">Departamento</label>
               <select
-                id="departamento"
-                {...register("departamento", { required: "Este campo es obligatorio" })}
+                id="Departament"
+                {...register("Departament", { required: "Este campo es obligatorio" })}
                 className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
                 onChange={(e)=>ChangeOptionDepar(e.target.value)}
               >
@@ -199,19 +246,19 @@ function Register() {
                  <option key={par.id} value={par.id}>{par.nameDepar}</option>
                 ))}
               </select>
-              {errors.departamento && (
+              {errors.Departament && (
                 <p className="text-red-500 text-sm mt-1">
-                  {errors.departamento.message}
+                  {errors.Departament.message}
                 </p>
               )}
             </div>
 
             {/* Provincia */}
             <div>
-              <label htmlFor="provincia">Provincia</label>
+              <label htmlFor="Province">Provincia</label>
               <select
-                id="provincia"
-                {...register("provincia", { required: "Este campo es obligatorio" })}
+                id="Province"
+                {...register("Province", { required: "Este campo es obligatorio" })}
                 className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
                 onChange={(e)=>ChangeOptionProvi(e.target.value)}
               >
@@ -220,19 +267,19 @@ function Register() {
                   <option key={par.id} value={par.id}>{par.name}</option>
                 ))}
               </select>
-              {errors.provincia && (
+              {errors.Province && (
                 <p className="text-red-500 text-sm mt-1">
-                  {errors.provincia.message}
+                  {errors.Province.message}
                 </p>
               )}
             </div>
 
             {/* Distrito */}
             <div>
-              <label htmlFor="distrito">Distrito</label>
+              <label htmlFor="District">Distrito</label>
               <select
-                id="distrito"
-                {...register("distrito", { required: "Este campo es obligatorio" })}
+                id="District"
+                {...register("District", { required: "Este campo es obligatorio" })}
                 className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
               >
                 <option value="">Seleccione un distrito</option>
@@ -240,9 +287,9 @@ function Register() {
                   <option key={par.id} value={par.id}>{par.name}</option>
                 ))}
               </select>
-              {errors.distrito && (
+              {errors.District && (
                 <p className="text-red-500 text-sm mt-1">
-                  {errors.distrito.message}
+                  {errors.District.message}
                 </p>
               )}
             </div>
@@ -251,8 +298,8 @@ function Register() {
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  //disabled={!watchFields}
-                  className={!watchFields ? "bg-[#1785de8b] text-white px-4 py-2 rounded transition" : "bg-[#1785de] text-white px-4 py-2 rounded hover:bg-[#0e65b5] transition"}
+                  disabled={!watchFields || (edad !== null && edad < 17 )}
+                  className={!watchFields || (edad !== null && edad < 17 ) ? "bg-[#1785de8b] text-white px-4 py-2 rounded transition" : "bg-[#1785de] text-white px-4 py-2 rounded hover:bg-[#0e65b5] transition"}
                 >
                   Siguiente
                 </button>
@@ -264,7 +311,7 @@ function Register() {
             <>
 
           <div className="mb-4 relative">
-            <label htmlFor="email">Correo Institucional</label>
+            <label htmlFor="Email">Correo Institucional</label>
 
             {/* Tooltip activado SOLO cuando el mouse está sobre el botón "i" */}
             <div className="absolute top-0 right-0 mt-1 mr-1">
@@ -281,17 +328,20 @@ function Register() {
             </div>
 
             <input
-              id="email"
-              type="email"
+              id="Email"
+              type="Email"
               placeholder="correo institucional"
-              {...register("email", { required: "Este campo es obligatorio" })}
+              {...register("Email", { required: "Este campo es obligatorio" })}
               className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
               onChange={(e) =>ValidateEmailInsti(e.target.value)}
             />
-            {(errors.email) && (
-              <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
+            {emailinsti.status === 'loading' &&
+            <LoadingLine />
+            }
+            {(errors.Email) && (
+              <p className="text-red-500 text-sm mt-1">{errors.Email.message}</p>
             )}
-            {dataR?.data?.success === true && (<p className="text-green-500 text-sm mt-1 flex items-center "> <FaCheck /> {dataR?.data?.message} </p>)}
+            {dataR?.data?.success === true && (<p className="text-[#0071e2] text-sm mt-1 flex items-center "> <FaCheck /> {dataR?.data?.message} </p>)}
             {dataR?.data?.success === false && (<p className="text-red-500 text-sm mt-1 flex items-center"> <RxCross2 /> {dataR?.data?.message} </p>)}
           </div>
             
@@ -305,9 +355,25 @@ function Register() {
             //{...register("Vcode",{required})} 
             className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
             onChange={(e)=>setVcode({...vcode, code:e.target.value})} />
-            {dataVC?.data?.success === true && ( <p className="text-green-500 text-sm mt-1 flex items-center"> <FaCheck /> {dataVC?.data?.message} </p> )}
+            {verifycode.status === 'loading' &&
+            <LoadingLine />
+            }
+            {dataVC?.data?.success === true && ( <p className="text-[#0071e2] text-sm mt-1 flex items-center"> <FaCheck /> {dataVC?.data?.message} </p> )}
             {dataVC?.data?.success === false && ( <p className="text-red-500 text-sm mt-1 flex items-center"> <RxCross2 /> {dataVC?.data?.message} </p> )}
           </div>)}
+
+          <div className=" mb-4">
+            <label>
+              Numero de telefono <span className="text-red-600">(opcional)</span>
+            </label>
+            <input
+              type="text"
+              placeholder="+51 900 000 099"
+              name="Number"
+              {...register("Number")}
+              className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
+            />
+          </div>
 
           <div className=" mb-4">
             <label>
@@ -315,31 +381,38 @@ function Register() {
             </label>
             <input
               type="text"
-              id="NameUser"
               placeholder="@example123"
+              name="Name_User"
               disabled={verifycode.status !== 'succeeded'}
-              {...register("NameUser", { required: "Este campo es obligatorio" })}
+              {...register("Name_User", { required: "Este campo es obligatorio" })}
               className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
+              onChange={onChangeNameUser}
+              value={nameUser}
             />
+            {verifyNameUserState.status === 'loading' &&
+            <LoadingLine />
+            }
+            {dataVNU?.data?.flag === 1 && (<p className="text-[#0071e2] text-sm mt-1 flex items-center "> <FaCheck /> {dataVNU?.data?.message} </p>)}
+            {dataVNU?.data?.flag === 0 && (<p className="text-red-500 text-sm mt-1 flex items-center"> <RxCross2 /> {dataVNU?.data?.message} </p>)}
           </div>
 
           <div className="mb-6">
             <label
-              htmlFor="password"
+              htmlFor="Password"
             >
               Contraseña
             </label>
             <input
-              id="password"
-              type="password"
+              id="Password"
+              type="Password"
               placeholder="********"
               disabled={verifycode.status !== 'succeeded'}
-              {...register("password", { required: "Este campo es obligatorio" })}
+              {...register("Password", { required: "Este campo es obligatorio" })}
               className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:border-[#1785de]"
             />
-            {errors.password && (
+            {errors.Password && (
               <p className="text-red-500 text-sm mt-1">
-                {errors.password.message}
+                {errors.Password.message}
               </p>
             )}
           </div>
