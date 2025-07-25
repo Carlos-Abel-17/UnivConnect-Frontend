@@ -1,10 +1,12 @@
 import { useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import socialImg from "../../assets/img/social_img.svg";
 import paper_logo from "../../../public/paper_logo.svg";
 import { useDispatch, useSelector } from "react-redux";
-import { GetDepart } from "../../redux/features/departament/Thunk/DeparThunk";
+import { LoginUser } from "../../redux/features/auth/Thunk/LoginThunk";
 import { useEffect } from "react";
+import { jwtDecode } from "jwt-decode";
+
 
 function Login() {
 
@@ -14,13 +16,30 @@ function Login() {
     formState: { errors }
   } = useForm();
 
-
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const {data, status, error} = useSelector((state)=>state.LoginState.LoginUserState);
 
   const onSubmit = (data) => {
-    console.log(data);
-    // Aquí haces la petición al backend
+    //console.log(data);
+    dispatch(LoginUser(data));
   };
 
+  useEffect( ()=>
+  {
+    console.log(data)
+    if(status === "succeeded" && data){
+      //console.log('se logro hacer el login', data)
+      const ObtenerToken = localStorage.getItem('Tokensecret')
+      if(ObtenerToken){
+        const decode = jwtDecode(ObtenerToken);
+        console.log(decode)
+      }
+      navigate('/')
+    }else if (status === "failed") {
+      console.log("Error al iniciar sesión:", error);
+    }
+  },[status])
 
   return (
     <div className="flex w-full h-screen ">

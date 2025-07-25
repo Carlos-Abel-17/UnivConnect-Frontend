@@ -28,6 +28,10 @@ export const CreateUser = createAsyncThunk(
     async (user)=>{
         const response = await axios.post(`${import.meta.env.VITE_URL_BACKEND_LOCAL}/users/createUsers`,{user});
         console.log(response);
-        return
+        return {
+            data:response.data,
+            status:response.status, 
+            message:response.data.message
+        }
     }
 )

@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import socialImg from "../../assets/img/social_img.svg";
 import paper_logo from "../../../public/paper_logo.svg";
 import { useDispatch, useSelector } from "react-redux";
@@ -13,6 +13,7 @@ import { RxCross2 } from "react-icons/rx";
 import { debounce } from "lodash";
 import { CreateUser, VerifyNameUser } from "../../redux/features/User/Thunk/UserThunk";
 import LoadingLine from "../../utils/loading_line";
+import { Toaster, toast } from "react-hot-toast";
 
 function Register() {
   //-------------------
@@ -40,6 +41,7 @@ function Register() {
   const {register, handleSubmit, formState: { errors }, watch,setValue} = useForm();
   const watchFields = watch(["Name", "LastName", "Birthdate", "Gender", "Departament", "Province", "District"]).every(value=>value && value != 0);
   const WatchBirthdate = watch('Birthdate');
+  const navigate = useNavigate();
   const genero = [
     { id: 0, type: '', name: 'Selecione una opcion' },
     { id: 1, type: 'M', name: 'Mujer' },
@@ -68,11 +70,9 @@ function Register() {
 
   useEffect(()=>{
     if(WatchBirthdate){
-      //console.log(WatchBirthdate)
       const today = new Date();
       const birth = new Date(WatchBirthdate);
       
-      //console.log(birth.getFullYear())
       let age = today.getFullYear() - birth.getFullYear();
       const  m = today.getMonth() - birth.getMonth();
 
@@ -82,12 +82,21 @@ function Register() {
       setEdad(age);
     }
   },[WatchBirthdate]);
+
+  // useEffect(()=>{
+  //   console.log(CreateUserState)
+  //   if(CreateUserState.status === 'succeeded'){
+  //         toast.success('✅ Registro exitoso');
+  //   setTimeout(() => {
+  //     navigate('/auth/login');
+  //   }, 2000);
+  //   }
+  // },[CreateUserState.status ])
   //-------------
   //? ARROW FUNCTION || FUNCTION
   //-------------
 
   const onSubmit = (data) => {
-    //console.log(dataR.data.data.dataInsti);
     const transforData = {
       ...data, Gender:Number(data.Gender),
       Province:Number(data.Province),
@@ -97,9 +106,15 @@ function Register() {
       Number:data.Number.length >= 9 ? data.Number : 900000099,
       idInstitucion: dataR?.data ? dataR.data.data.dataInsti.idInstitucion : null
     };
-    //console.log(transforData)
     dispath(CreateUser(transforData));
-    //console.log(CreateUserState);
+    //console.log(CreateUserState)
+
+    if(CreateUserState?.data?.data.flag === 1 && CreateUserState?.data?.data.flag ){
+        toast.success(' Registro exitoso');
+        setTimeout(() => {
+        navigate('/auth/login');
+        }, 2000)
+    };
   };
   
   const ChangeOptionDepar = (value) => {
@@ -114,7 +129,6 @@ function Register() {
     if(value.includes('@') && (value.includes('.pe') || value.includes('.com'))){
       setEmailValue(value)
       dispath(ValidateEmailinstiThunk(value));
-      //console.log(emailinsti)
     }
   }
 
@@ -131,7 +145,7 @@ function Register() {
   const value = e.target.value;
   setNameUser(value)
   handleNameUserChange(value)
-  console.log(verifyNameUserState);
+  //console.log(verifyNameUserState);
  }
 
   const VerifyCodeEmail = (value) =>{
@@ -139,7 +153,18 @@ function Register() {
     dispath(VerifyCodeEmailThunk(value))
   }
 
-  return (
+  return (<>
+      <Toaster
+          position="bottom-left"
+    toastOptions={{
+      duration: 3000,
+      style: {
+        background: '#222',
+        color: '#fff',
+        fontSize: '14px',
+      },
+    }}
+      />
     <div className="flex w-full h-screen ">
       {/* //! Imagen lateral - solo visible en pantallas */}
       <div className="hidden md:flex w-1/2 items-center justify-center relative ">
@@ -451,6 +476,7 @@ function Register() {
         </form>
       </div>
     </div>
+    </>
   );
 }
 
